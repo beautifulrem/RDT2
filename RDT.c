@@ -1,7 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+
 #pragma warning(disable:4996)
 
+int diu1;
+int diu2;
+int loss1;
+int loss2;
+float lossprob;            /* probability that a packet is dropped  */
+float corruptprob;         /* probability that one bit is packet is flipped */
 
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
@@ -16,6 +23,9 @@
    - packets will be delivered in the order in which they were sent
      (although some can be lost).
 **********************************************************************/
+
+
+//-----------------------------------------------------------------------写的部分------------------------------------------------------------------------------
 
 #define BIDIRECTIONAL 0 /* 如果你要完成额外的任务，请将其更改为1 /
 / 并编写一个名为B_output的例程 */
@@ -62,12 +72,30 @@ struct senderinfo Asender;
 A_output(message) struct msg message;
 
 { if (Asender.nextseqnum < Asender.base + Asender.winsize)
-{
+  {
     struct pkt packet; packet.seqnum = Asender.nextseqnum;
     packet.acknum = 0; strncpy(packet.payload, message.data, 20); packet.checksum = packet.seqnum + packet.acknum;
     for (int i = 0; i < 20; i++)
     {
         packet.checksum += packet.payload[i];
+    }
+    // 随机模拟出现错误的情况
+    if (diu1 == 1)
+    {
+        float cor1 = corruptprob * 100;
+        if (rand() % 100 < cor1) { // 概率出现错误
+            packet.checksum++; // 修改校验和，使其出错
+            srand(rand() + 1);
+        }
+    }
+    // 随机模拟出现丢失的情况
+    if (loss1 == 1)
+    {
+        float cor2 = lossprob * 100;
+        if (rand() % 100 < cor2) { // 概率出现错误
+            return; // 直接返回，数据包丢失
+            srand(rand() + 1);
+        }
     }
     Asender.sw[Asender.nextseqnum % 10].pkt = (struct pkt*)malloc(sizeof(struct pkt));
     *(Asender.sw[Asender.nextseqnum % 10].pkt) = packet; Asender.sw[Asender.nextseqnum % 10].recvack = 0; tolayer3(0, packet);
@@ -76,7 +104,8 @@ A_output(message) struct msg message;
         starttimer(0, Asender.timeoutinterval);
     }
     Asender.nextseqnum++;
-}
+    
+  }
 }
 
 /* 接收到从层3传递到层4的数据包时调用 */
@@ -86,6 +115,24 @@ A_input(packet) struct pkt packet;
 for (int i = 0; i < 20; i++)
 {
     checksum += packet.payload[i];
+}
+// 随机模拟出现错误的情况
+if (diu2 == 1)
+{
+    float cor3 = corruptprob * 100;
+    if (rand() % 100 < cor3) { // 概率出现错误
+        packet.payload[0] = 'E'; // 将ACK包的第一个字节修改为'E'，模拟出现错误
+        srand(rand() + 1);
+    }
+}
+// 随机模拟出现丢失的情况
+if (loss2 == 1)
+{
+    float cor4 = lossprob * 100;
+    if (rand() % 100 < cor4) { // 概率出现错误
+        return; // 直接返回，数据包丢失
+        srand(rand() + 1);
+    }
 }
 if (checksum == packet.checksum && packet.acknum >= Asender.base && packet.acknum < Asender.nextseqnum)
 {
@@ -124,7 +171,7 @@ A_init()
     Asender.base = 1;
     Asender.winsize = 1;
     Asender.nextseqnum = 1;
-    Asender.timeoutinterval = 15.0;    //timeoutinterval的量初始化
+    Asender.timeoutinterval = 30.0;    //timeoutinterval的量初始化
 }
 
 /* 注意：由于是从A到B的单向传输，因此不需要B_output()函数 */
@@ -162,6 +209,8 @@ B_timerinterrupt() { }
 
 B_init() { }
 
+
+//-------------------------------------------------------------------------------------------写的部分--------------------------------------------------------------------------
 
 /*****************************************************************
 ***************** NETWORK EMULATION CODE STARTS BELOW ***********
@@ -205,8 +254,6 @@ int TRACE = 1;             /* for my debugging */
 int nsim = 0;              /* number of messages from 5 to 4 so far */
 int nsimmax = 0;           /* number of msgs to generate, then stop */
 float time = 0.000;
-float lossprob;            /* probability that a packet is dropped  */
-float corruptprob;         /* probability that one bit is packet is flipped */
 float lambda;              /* arrival rate of messages from layer 5 */
 int   ntolayer3;           /* number sent into layer 3 */
 int   nlost;               /* number lost in media */
@@ -327,6 +374,15 @@ init()                         /* initialize the simulator */
     scanf("%f", &lambda);
     printf("TRACE模块值:");
     scanf("%d", &TRACE);
+    printf("输入是否数据包error[有为1，无为0]:");
+    scanf("%d", &diu1);
+    printf("输入是否ACK包error[有为1，无为0]:");
+    scanf("%d", &diu2);
+    printf("输入是否数据包loss[有为1，无为0]:");
+    scanf("%d", &loss1);
+    printf("输入是否ACK包loss[有为1，无为0]:");
+    scanf("%d", &loss2);
+
 
     srand(9999);              /* init random number generator */
     sum = 0.0;                /* test random number generator for students */
